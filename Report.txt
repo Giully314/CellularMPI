@@ -1,0 +1,17 @@
+INTRODUZIONE
+
+Questo programma presenta la computazione di un automa cellullare con l'utilizzo di MPI, per un sistema distribuito.
+La scelta dell'automa e delle regole implementate sono personali, ma possono essere cambiate facilmente modificando
+le funzioni adeguate. Prima di scrivere un programma che viene eseguito in parallelo (in questo caso su più 
+calcolatori diversi) preferisco scrivere una prima bozza in seriale, per verificare la correttezza del programma 
+e farmi un'idea su quali patterns utilizzare e come impostare l'architettura del programma. Partiamo parlando della
+topologia che ho scelto.
+
+
+TOPOLOGIA
+La topologia che ho scelto è una topologia cartesiana ad anello, ad una dimensione (ovviamente non avendo l'hardware
+per provare le varie configurazioni fisiche, questa scelta è prettamente personale). 
+
+
+
+
