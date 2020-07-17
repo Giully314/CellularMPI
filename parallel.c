@@ -384,16 +384,16 @@ void NextStep(int rank, int** a, int** update)
 
 void Exchange(int** a)
 {
-    MPI_Send(&a[2][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm);//, &requests[0]);
+    MPI_Isend(&a[3][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[0]);
   
-    MPI_Recv(&a[3][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, MPI_STATUS_IGNORE);//, &requests[3]);
+    MPI_Isend(&a[1][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[1]);
 
-    MPI_Send(&a[1][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm);//, &requests[2]);
+    MPI_Irecv(&a[0][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[2]);
 
-    MPI_Recv(&a[0][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, MPI_STATUS_IGNORE);// &requests[1]);
+    MPI_Irecv(&a[3][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[3]);
 
 
-    //MPI_Waitall(4, requests, status);
+    MPI_Waitall(4, requests, status);
 }
 
 
