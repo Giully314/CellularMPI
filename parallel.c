@@ -15,7 +15,7 @@
 #define ROOT 0
 
 #define ROWS_PER_PROC 5
-#define SIZE_COLUMNS 70
+#define SIZE_COLUMNS 50
 #define GHOST_SIZE 2
 
 //Dichiaro le variabili globali per semplificare il programma nella scrittura e renderlo più leggibile.
@@ -45,7 +45,7 @@ void Free2DArray(int **a);
 Creazione popolazione cellular automata. Questa funzione può essere personalizzata per creare varie
 popolazioni di automi cellulari. 
 */
-void PopulateCellularAutomata(int** cellular, int rows, int columns);
+void PopulateCellularAutomata(int* cellular, int rows, int columns);
 
 //Conta le cellule vive intorno alla cellula nella posizione i,j.
 int CountNeighbors(int** a, int i, int j);
@@ -144,61 +144,7 @@ int main(int argc, char** argv)
         */
         MALLOC(cellular_popolation, rows * SIZE_COLUMNS * sizeof(int));
 
-        srand(13);
-        for (int i = 0; i < rows * SIZE_COLUMNS; ++i)
-        {
-            cellular_popolation[i] = 0;
-        }
-
-        int i ;
-        for (i = 20; i < 20 + 8; ++i)
-        {
-            cellular_popolation[20 * SIZE_COLUMNS + i] = 1;
-        }
-        ++i;
-
-        int j = i;
-        for (; i < j + 5; ++i)
-        {
-            cellular_popolation[20 * SIZE_COLUMNS + i] = 1;
-        }
-
-        i += 3;
-        j = i;
-        for (; i < j + 3; ++i)
-        {
-            cellular_popolation[20 * SIZE_COLUMNS + i] = 1;
-        }
-
-        i += 6;
-        j = i;
-        for (; i < j + 7; ++i)
-        {
-            cellular_popolation[20 * SIZE_COLUMNS + i] = 1;
-        }
-
-
-        i += 1;
-        j = i;
-        for (; i < j + 5; ++i)
-        {
-            cellular_popolation[20 * SIZE_COLUMNS + i] = 1;
-        }
-
-
-        /* #define cell(a, x, y) a[y * SIZE_COLUMNS + x]
-
-        cell(cellular_popolation, 41, 40) = 1;
-        cell(cellular_popolation, 42, 40) = 1;
-
-        cell(cellular_popolation, 40, 41) = 1;
-        cell(cellular_popolation, 41, 41) = 1;
-
-        cell(cellular_popolation, 40, 42) = 1; */
-        
-
-        /* PopulateCellularAutomata(cellular_popolation, rows, SIZE_COLUMNS);
-        */
+        PopulateCellularAutomata(cellular_popolation, rows, SIZE_COLUMNS);    
     }
 
 
@@ -315,15 +261,15 @@ void FindNeighbors(MPI_Comm cart_comm, int rank, int *neighbors)
 
 
 
-void PopulateCellularAutomata(int** cellular, int rows, int columns)
+void PopulateCellularAutomata(int* cellular, int rows, int columns)
 {
     //parametro momentaneo!
-    //srand(0);
+    srand(0);
     for (int i = 0; i < rows; ++i)
     {
         for (int j = 0; j < columns; ++j)
         {
-            cellular[i][j] = 42;//rand() % 2;
+            cellular[i * SIZE_COLUMNS + j] = rand() % 2;
         }
     }
 }
