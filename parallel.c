@@ -66,28 +66,7 @@ void CheckRule(int count, int** a, int i, int j, int** update);
 void FindNeighbors(MPI_Comm cart_comm, int rank, int *neighbors);
 
 
-void Print2DArray(int *a, int rows, int columns)
-{
-    for (int i = 0; i < rows; ++i)
-    {
-        for (int j = 0; j < columns; ++j)
-        {
-            if (a[i * columns + j] == 1)
-            {
-                printf("\033[0;32m"); //setto il colore
-                printf("# ");
-            }
-            else
-            {
-                printf("\033[0m");//resetto il colore
-                printf("0 ");
-            }
-        }
-        printf("\n");
-    }
-
-    printf("\n\n");
-}
+void Print2DArray(int *a, int rows, int columns);
 
 
 int main(int argc, char** argv)
@@ -119,11 +98,7 @@ int main(int argc, char** argv)
         printf("Error cart");
     }
 
-    FindNeighbors(cart_comm, rank, neighboors);
-
-    
-    //printf("RANK %d:  %d %d\n", rank, neighboors[0], neighboors[1]);
-    
+    FindNeighbors(cart_comm, rank, neighboors);  
 
 
     int* cellular_popolation = NULL;
@@ -158,14 +133,29 @@ int main(int argc, char** argv)
 
     MPI_Scatter(cellular_popolation, data_length, MPI_INT, &(cellular_group[1][0]), data_length, MPI_INT, ROOT,
                     cart_comm); 
+
     
+    /* printf("Scatter");
+
+    if (rank == ROOT)
+    {
+        for (int i= 1; i < ROWS_PER_PROC + 1; ++i)
+        {
+            for (int j = 0; j < SIZE_COLUMNS; ++j)
+            {
+                printf("%d ", cellular_group[i][j]);
+            }
+            printf("\n");
+        }
+    } */
 
 
 
     int **updated_cellular = Make2DArray(ROWS_PER_PROC, SIZE_COLUMNS);
     memset(&updated_cellular[0][0], 0, ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
 
-    int number_of_cycles = 10;
+    int number_of_cycles = 2;
+
 
     while (number_of_cycles >= 0)
     {
@@ -176,16 +166,28 @@ int main(int argc, char** argv)
         di latenza della memoria, che in un sistema distribuito, sono i più importanti da risolvere con la scrittura
         di codice che ne tenga conto. Anche per quanto riguarda l'ouput delle informazioni vale questa cosa.
         */
-        NextStep(rank, cellular_group, updated_cellular);
 
-        MPI_Gather(&updated_cellular[0][0], ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, cellular_popolation, 
-                    ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, ROOT, cart_comm); 
-
-        
         if (rank == ROOT)
         {
             Print2DArray(cellular_popolation, rows, SIZE_COLUMNS);
         }
+
+        NextStep(rank, cellular_group, updated_cellular);
+
+        /* if (rank == ROOT)
+        {
+            for (int i= 1; i < ROWS_PER_PROC + 1; ++i)
+            {
+                for (int j = 0; j < SIZE_COLUMNS; ++j)
+                {
+                    printf("%d ", cellular_group[i][j]);
+                }
+                printf("\n");
+            }
+        } */
+
+        MPI_Gather(&updated_cellular[0][0], ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, cellular_popolation, 
+                    ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, ROOT, cart_comm); 
 
 
         sleep(1);
@@ -245,13 +247,56 @@ void Free2DArray(int** a)
 }
 
 
+void Print2DArray(int *a, int rows, int columns)
+{
+    for (int i = 0; i < rows; ++i)
+    {
+        for (int j = 0; j < columns; ++j)
+        {
+            if (a[i * columns + j] == 1)
+            {
+                printf("\033[0;32m"); //setto il colore
+                printf("# ");
+            }
+            else
+            {
+                printf("\033[0m");//resetto il colore
+                printf("0 ");
+            }
+        }
+        printf("\n");
+    }
+
+    printf("\n\n");
+}
+
+
 void FindNeighbors(MPI_Comm cart_comm, int rank, int *neighbors)
 {
-    int coords[1];
+    int coords[CART_DIMENSIONS];
 
     MPI_Cart_coords(cart_comm, rank, CART_DIMENSIONS, coords);
-
+    
     int i = coords[0];
+
+    int size;
+    MPI_Comm_size(cart_comm, &size);
+
+    if (size == 1)
+    {
+        neighboors[0] = rank;
+        return;
+    }
+    else if (size == 2)
+    {
+        coords[0] = i - 1;
+        MPI_Cart_rank(cart_comm, coords, &neighboors[0]);
+        neighboors[1] = rank;
+
+        return;
+    }
+
+
     coords[0] = i - 1;
     MPI_Cart_rank(cart_comm, coords, &neighbors[0]);
 
@@ -264,7 +309,7 @@ void FindNeighbors(MPI_Comm cart_comm, int rank, int *neighbors)
 void PopulateCellularAutomata(int* cellular, int rows, int columns)
 {
     //parametro momentaneo!
-    srand(0);
+    srand(42);
     for (int i = 0; i < rows; ++i)
     {
         for (int j = 0; j < columns; ++j)
@@ -289,30 +334,27 @@ int CountNeighbors(int** a, int i, int j)
 void NextStep(int rank, int** a, int** update)
 {
 
-    /* printf("rank %d   neighboors: %d %d\n", rank, neighboors[0], neighboors[1]);
-    printf("Before. rank: %d. firsRow: %d %d %d %d %d\n", rank, a[0][0], a[0][1], a[0][2], a[0][3], a[0][4]);
-    printf("Before. rank: %d. lastRow: %d %d %d %d %d\n", rank, a[4][0], a[4][1], a[4][2], a[4][3], a[4][4]); */
+    //printf("rank %d   neighboors: %d %d\n", rank, neighboors[0], neighboors[1]);
     
     /* char s[SIZE_COLUMNS + 1];
+
     for (int i= 0; i < SIZE_COLUMNS; ++i)
     {
         sprintf(&s[i], "%d", a[0][i]);
     }
+
     s[SIZE_COLUMNS] = '\0';
-    printf("Before. rank %d  %s\n", rank, s); */
+    printf("Before. rank %d  %s\n", rank, s);
 
-    Exchange(a);
 
-    /* for (int i= 0; i < SIZE_COLUMNS; ++i)
+    for (int i= 0; i < SIZE_COLUMNS; ++i)
     {
         sprintf(&s[i], "%d", a[0][i]);
-    } */
-    /* s[SIZE_COLUMNS] = '\0';
+    } 
+    s[SIZE_COLUMNS] = '\0';
     printf("After . rank %d  %s\n\n", rank, s); */
     
-
-    /* printf("After.  rank: %d. firsRow: %d %d %d %d %d\n", rank, a[0][0], a[0][1], a[0][2], a[0][3], a[0][4]);
-    printf("After.  rank: %d. lastRow: %d %d %d %d %d\n\n", rank, a[4][0], a[4][1], a[4][2], a[4][3], a[4][4]); */
+    Exchange(a);
 
 
     for (int i = 1; i < ROWS_PER_PROC + 1; ++i)
@@ -320,6 +362,7 @@ void NextStep(int rank, int** a, int** update)
         for (int j = 1; j < SIZE_COLUMNS - 1; ++j)
         {
             int count = CountNeighbors(a, i, j);
+            //printf("From rank %d, count : %d\n", rank, count);
            
             CheckRule(count, a, i, j, update);
             memcpy(&a[1][0], &update[0][0], ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
@@ -336,7 +379,7 @@ void Exchange(int** a)
 
     MPI_Irecv(&a[0][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[2]);
 
-    MPI_Irecv(&a[3][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[3]);
+    MPI_Irecv(&a[4][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[3]);
 
 
     MPI_Waitall(4, requests, status);
