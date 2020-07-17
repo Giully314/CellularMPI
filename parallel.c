@@ -40,6 +40,8 @@ int** Make2DArray(int rows, int columns);
 
 void Free2DArray(int **a);
 
+void Print2DArray(int *a, int rows, int columns);
+
 
 /*
 Creazione popolazione cellular automata. Questa funzione può essere personalizzata per creare varie
@@ -47,26 +49,27 @@ popolazioni di automi cellulari.
 */
 void PopulateCellularAutomata(int* cellular, int rows, int columns);
 
-//Conta le cellule vive intorno alla cellula nella posizione i,j.
+/*Conta le cellule vive intorno alla cellula nella posizione i,j. Questa funzione può essere personalizzata per cambiare
+il modo in cui vengono contate le cellulle vicine. (Metodo Moore, von Neumann, ecc)
+*/
 int CountNeighbors(int** a, int i, int j);
 
 
-//avanza di step.
+/*Avanza di uno step in avanti. Questa funzione esegue lo scambio delle ghost row, conta le cellule vicine e performa
+il calcolo per l'update dello stato dell'automa cellulare.
+*/
 void NextStep(int rank, int** a, int** update);
 
 
-//Scambia i ghost points
+//Scambia i ghost points.
 void Exchange(int** a);
 
 //Questa funzione può essere modificata per implementare qualsiasi regola per gli automi cellulari.
 void CheckRule(int count, int** a, int i, int j, int** update);
 
-
-//int GetCartRank(MPI_Comm cart_comm);
+//Trova i processi vicini. Si può anche utilizzare MPI_Cart_shift (soprattutto se si è in una dimensione).
 void FindNeighbors(MPI_Comm cart_comm, int rank, int *neighbors);
 
-
-void Print2DArray(int *a, int rows, int columns);
 
 
 int main(int argc, char** argv)
@@ -109,6 +112,8 @@ int main(int argc, char** argv)
     un overhead iniziale tra inizializzazione dei dati da parte di un solo processo e scatter.
     */
 
+
+    //Inizializzazione risorse da parte del processo ROOT.
     const int rows = num_of_tasks * ROWS_PER_PROC;
     if (rank == ROOT)
     {
@@ -120,42 +125,23 @@ int main(int argc, char** argv)
         MALLOC(cellular_popolation, rows * SIZE_COLUMNS * sizeof(int));
 
         PopulateCellularAutomata(cellular_popolation, rows, SIZE_COLUMNS);    
-    }
+    }   
 
-
-    //int **cellular_group = Make2DArray(ROWS_PER_PROC, SIZE_COLUMNS);
-
-
+    //Allocazione array per ogni processo da passare a scatter.
     const int data_length = ROWS_PER_PROC * SIZE_COLUMNS;
     int** cellular_group = Make2DArray(ROWS_PER_PROC + GHOST_SIZE, SIZE_COLUMNS);
     
-    //int *data = cellular_popolation[0];
 
     MPI_Scatter(cellular_popolation, data_length, MPI_INT, &(cellular_group[1][0]), data_length, MPI_INT, ROOT,
                     cart_comm); 
-
-    
-    /* printf("Scatter");
-
-    if (rank == ROOT)
-    {
-        for (int i= 1; i < ROWS_PER_PROC + 1; ++i)
-        {
-            for (int j = 0; j < SIZE_COLUMNS; ++j)
-            {
-                printf("%d ", cellular_group[i][j]);
-            }
-            printf("\n");
-        }
-    } */
 
 
 
     int **updated_cellular = Make2DArray(ROWS_PER_PROC, SIZE_COLUMNS);
     memset(&updated_cellular[0][0], 0, ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
 
-    int number_of_cycles = 2;
 
+    int number_of_cycles = 2;
 
     while (number_of_cycles >= 0)
     {
@@ -174,18 +160,6 @@ int main(int argc, char** argv)
 
         NextStep(rank, cellular_group, updated_cellular);
 
-        /* if (rank == ROOT)
-        {
-            for (int i= 1; i < ROWS_PER_PROC + 1; ++i)
-            {
-                for (int j = 0; j < SIZE_COLUMNS; ++j)
-                {
-                    printf("%d ", cellular_group[i][j]);
-                }
-                printf("\n");
-            }
-        } */
-
         MPI_Gather(&updated_cellular[0][0], ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, cellular_popolation, 
                     ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, ROOT, cart_comm); 
 
@@ -196,7 +170,7 @@ int main(int argc, char** argv)
     }
 
 
-
+    //Pulizia risorse utilizzate.
 
     Free2DArray(cellular_group);
     Free2DArray(updated_cellular);
@@ -308,7 +282,7 @@ void FindNeighbors(MPI_Comm cart_comm, int rank, int *neighbors)
 
 void PopulateCellularAutomata(int* cellular, int rows, int columns)
 {
-    //parametro momentaneo!
+    //parametro che può essere cambiato a piacere. Si, 42 è un riferimento a Guida galattica per gli autostoppisti!
     srand(42);
     for (int i = 0; i < rows; ++i)
     {
@@ -322,7 +296,6 @@ void PopulateCellularAutomata(int* cellular, int rows, int columns)
 
 int CountNeighbors(int** a, int i, int j)
 {
-    //printf("%d %d\n",a[0][0], a[1][0]);
     int count = a[i - 1][j - 1] + a[i - 1][j] + a[i - 1][j + 1] +
                 a[i][j - 1]     +       0     + a[i][j + 1]     +
                 a[i + 1][j - 1] + a[i + 1][j] + a[i + 1][j + 1];
@@ -333,27 +306,7 @@ int CountNeighbors(int** a, int i, int j)
 
 void NextStep(int rank, int** a, int** update)
 {
-
-    //printf("rank %d   neighboors: %d %d\n", rank, neighboors[0], neighboors[1]);
-    
-    /* char s[SIZE_COLUMNS + 1];
-
-    for (int i= 0; i < SIZE_COLUMNS; ++i)
-    {
-        sprintf(&s[i], "%d", a[0][i]);
-    }
-
-    s[SIZE_COLUMNS] = '\0';
-    printf("Before. rank %d  %s\n", rank, s);
-
-
-    for (int i= 0; i < SIZE_COLUMNS; ++i)
-    {
-        sprintf(&s[i], "%d", a[0][i]);
-    } 
-    s[SIZE_COLUMNS] = '\0';
-    printf("After . rank %d  %s\n\n", rank, s); */
-    
+    //Scambio righe prima della computazione.
     Exchange(a);
 
 
@@ -362,9 +315,10 @@ void NextStep(int rank, int** a, int** update)
         for (int j = 1; j < SIZE_COLUMNS - 1; ++j)
         {
             int count = CountNeighbors(a, i, j);
-            //printf("From rank %d, count : %d\n", rank, count);
            
             CheckRule(count, a, i, j, update);
+
+            //Copio lo stato aggiornato nell'altro array.
             memcpy(&a[1][0], &update[0][0], ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
         }
     }
