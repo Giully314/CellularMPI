@@ -5,8 +5,6 @@
 #include <unistd.h>
 #include <omp.h>
 
-#define DEBUG(w, i) printf("%d: %s\n", i, w)
-
 
 #define err(s) { perror((s)); exit(EXIT_FAILURE); }
 #define MALLOC(s,t) if(((s) = malloc(t)) == NULL) { err("error: malloc() "); }
