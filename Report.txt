@@ -8,9 +8,58 @@ e farmi un'idea su quali patterns utilizzare e come impostare l'architettura del
 topologia che ho scelto.
 
 
+
 TOPOLOGIA
 La topologia che ho scelto è una topologia cartesiana ad anello, ad una dimensione (ovviamente non avendo l'hardware
-per provare le varie configurazioni fisiche, questa scelta è prettamente personale). 
+per provare le varie configurazioni fisiche, questa scelta è prettamente personale). Se si utilizzassero regole più
+complesse per descrivere gli automi cellulari in situazioni particolari, una topologia interessante da utilizzare
+sarebbe quella a grafo. In questo modo si potrebbe pensare di scegliere una regola diversa per ogni calcolatore,
+per simulare una popolazione diversa, e implementare delle regole apposite per vedere come si comportano le popolazioni
+diverse a contatto con diverse altre popolazioni.
+
+
+
+AUTOMA CELLULARE
+Per quanto riguarda gli automi cellulari, ho preso principalmente spunto da un articolo di Wolfram contenuto nel suo 
+libro "A new kind of science". Molto interessanti le 4 classi a cui può appertenere un'automa e che determina il suo
+comportamento. Probabilmente farò degli esperimenti con le classi di automi che simulano i fluidi, appena finirò di 
+costruire il mio mini cluster fatto di RaspberryPi.
+
+
+
+COMUNICAZIONE
+La comunicazione tra processi, in questo caso, è molto semplice. Ogni processo comunica con soli altri 2 processi:
+quello alla sua "destra" e quello alla sua "sinistra". La comunicazione è non bloccante. Per quanto riguarda i costi,
+la comunicazione è quella che costa di più in termini di tempo e risorse. E' essenziale che venga limitata il più
+possibile. Ecco perchè, la mia prima versione parallela del programma, prevedeva l'inizializzazione indipendente 
+delle risorse per ogni processo, con un solo processo che si occupava del Gather delle informazioni e della stampa.
+In questo modo l'unica comunicazione era solo per la raccolta dati, e per lo scambio dei ghost points.
+
+
+
+RISORSE
+
+Automi
+A new kind of science by S. Wolfram.
+https://en.wikipedia.org/wiki/Cellular_automaton
+
+
+Risorse per MPI e architettura parallela
+https://pages.tacc.utexas.edu/~eijkhout/pcse/html/
+https://pages.tacc.utexas.edu/~eijkhout/istc/html/index.html
+
+Archiettura dei calcolatori by Tanenbaum & Austin
+
+MPI: The Complete Reference  Marc Snir, Steve Otto, Steven Huss-Lederman, David Walker, Jack Dongarra.
+Using MPI: Portable Parallel Programming With the Message-Passing Interface by Gropp, Lusk, Skjellum.
+
+
+Articoli
+Parallelisation Strategies for Large Scale Cellular Automata Frameworks in Pharmaceutical Modelling.
+Scaling hybrid coarray/MPI miniapps on Archer.
+Performance analysis of Cellular Automata HPC implementations.
+
+
 
 
 
