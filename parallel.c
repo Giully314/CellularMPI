@@ -117,14 +117,20 @@ int main(int argc, char** argv)
     const int rows = num_of_tasks * ROWS_PER_PROC;
     if (rank == ROOT)
     {
-        //cellular_popolation = Make2DArray(rows, SIZE_COLUMNS);
-
         /*
         Devo allocare in modo "diverso" l'array principale poiché scatter non riconosce che la memoria è contigua.
         */
         MALLOC(cellular_popolation, rows * SIZE_COLUMNS * sizeof(int));
 
-        PopulateCellularAutomata(cellular_popolation, rows, SIZE_COLUMNS);    
+
+        memset(cellular_popolation, 0, rows * SIZE_COLUMNS * sizeof(int));
+
+        cellular_popolation[5 * SIZE_COLUMNS + 10] = 1;
+        cellular_popolation[5 * SIZE_COLUMNS + 11] = 1;
+        cellular_popolation[4 * SIZE_COLUMNS + 10] = 1;
+        cellular_popolation[4 * SIZE_COLUMNS + 11] = 1;
+
+        //PopulateCellularAutomata(cellular_popolation, rows, SIZE_COLUMNS);    
     }   
 
     //Allocazione array per ogni processo da passare a scatter.
@@ -141,7 +147,7 @@ int main(int argc, char** argv)
     memset(&updated_cellular[0][0], 0, ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
 
 
-    int number_of_cycles = 2;
+    int number_of_cycles = 5;
 
     while (number_of_cycles >= 0)
     {
@@ -155,8 +161,20 @@ int main(int argc, char** argv)
 
         if (rank == ROOT)
         {
-            Print2DArray(cellular_popolation, rows, SIZE_COLUMNS);
+            //Print2DArray(cellular_popolation, rows, SIZE_COLUMNS);
         }
+
+        /* if (rank == ROOT)
+        {
+            for (int i = 1; i < ROWS_PER_PROC + 1; ++i)
+            {
+                for (int j = 0; j < SIZE_COLUMNS; ++j)
+                {
+                    printf("%d ", cellular_group[i][j]);
+                }
+                printf("\n");
+            }
+        } */
 
         NextStep(rank, cellular_group, updated_cellular);
 
@@ -309,19 +327,54 @@ void NextStep(int rank, int** a, int** update)
     //Scambio righe prima della computazione.
     Exchange(a);
 
+    /* if (rank == ROOT)
+    {
+        for (int i = 0; i < ROWS_PER_PROC + GHOST_SIZE; ++i)
+        {
+            for (int j = 0; j < SIZE_COLUMNS; ++j)
+            {
+                printf("%d ", a[i][j]);
+            }
+            printf("\n");
+        }
+        printf("\n\n");
+    }
+         */
+
 
     for (int i = 1; i < ROWS_PER_PROC + 1; ++i)
     {
         for (int j = 1; j < SIZE_COLUMNS - 1; ++j)
         {
             int count = CountNeighbors(a, i, j);
-           
+            if (i == 5 && rank == ROOT)
+            {
+                printf("%d ", count);
+            }
+            
             CheckRule(count, a, i, j, update);
-
-            //Copio lo stato aggiornato nell'altro array.
-            memcpy(&a[1][0], &update[0][0], ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
+        }
+        if (i == 5 && rank == ROOT)
+        {
+            printf("\n\n");
         }
     }
+
+    //Copio lo stato aggiornato nell'altro array.
+    memcpy(&a[1][0], &update[0][0], ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
+
+    /* if (rank == ROOT)
+    {
+        for (int i = 0; i < ROWS_PER_PROC; ++i)
+        {
+            for (int j = 0; j < SIZE_COLUMNS; ++j)
+            {
+                printf("%d ", update[i][j]);
+            }
+            printf("\n");
+        }
+        printf("\n\n");
+    } */
 }
 
 
@@ -331,10 +384,9 @@ void Exchange(int** a)
   
     MPI_Isend(&a[1][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[1]);
 
-    MPI_Irecv(&a[0][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[2]);
+    MPI_Irecv(&a[4][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[3]);
 
-    MPI_Irecv(&a[4][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[3]);
-
+    MPI_Irecv(&a[0][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[2]);
 
     MPI_Waitall(4, requests, status);
 }
