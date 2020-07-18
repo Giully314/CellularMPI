@@ -7,6 +7,15 @@ calcolatori diversi) preferisco scrivere una prima bozza in seriale, per verific
 e farmi un'idea su quali patterns utilizzare e come impostare l'architettura del programma. Partiamo parlando della
 topologia che ho scelto.
 
+Nota sul programma:
+Si può scegliere quante righe assegnare ad ogni processo cambiando il paramentro ROWS_PER_PROC. Stessa cosa vale
+per il numero di colonne. Il terminale, per stampare in modo corretto deve essere della dimensione adeguata ai 
+parametri citati sopra.
+
+comandi per compilare ed eseguire il programma:
+mpicc parallel.c -fopenmp -o main
+mpiexec -n num_of_proc ./main
+
 
 
 TOPOLOGIA
@@ -37,6 +46,32 @@ In questo modo l'unica comunicazione era solo per la raccolta dati, e per lo sca
 
 
 
+MULTITHREADING
+Per mancanza di hardware (il programma è stato scritto utilizzando una macchina virtuale e ho un pc poco performante),
+non ho potuto implementare una parallelizzazione adeguata a causa della mancanza di possibilità di testare il risultato
+finale e vedere se le performance migliorassero. Ovviamento ho fatto i vari calcoli teorici, ma si fermano ad un livello
+astratto ed è impossibile dedurne qualcosa facendo girare il programma su un solo core. L'unica parte che ho parallelizzato
+è stata l'applicazione della regola. Questo perché ogni riga viene processata in modo indipendente e questo si traduce
+in una possibile parallelizzazione del ciclo for. Avrei preferito utilizzare Cilkplus, che dispone di un sistema di 
+load-balancing molto interessante (più informazioni a riguardo nel libro Structured parallel programming), a differenza
+di OMP. Tra le altre cose, OMP soffre di una mancanza molto importante che è il supporto al nesting pattern 
+(altre informazioni in Structured parallel programming ) in modo "automatico".
+
+
+
+
+MISURAZIONE DELLE PERFORMANCE E GRAFICA
+Per quanto riguarda la misurazione delle performance, ho avuto problemi nell'installare e utilizzare (poichè la 
+librearia in questione è deprecata) MPE per il logging e la misura delle performance di applicazioni che usano MPI.
+Ovviamente si può utilizzare MPI_WTime() per misurare le performance ma è un po' una scelta "primitiva" poiché 
+bisognerebbe scrivere un'API per interfacciarsi in modo decente e pulito.
+Stessa cosa vale per MPE graphics. 
+Ho scelto quindi di implementare una semplice funzione che stampi l'array e imposti il colore e il carattere in base 
+al valore della cellulla.
+
+
+
+
 RISORSE
 
 Automi
@@ -53,14 +88,9 @@ Archiettura dei calcolatori by Tanenbaum & Austin
 MPI: The Complete Reference  Marc Snir, Steve Otto, Steven Huss-Lederman, David Walker, Jack Dongarra.
 Using MPI: Portable Parallel Programming With the Message-Passing Interface by Gropp, Lusk, Skjellum.
 
+Structured parallel programming. Patterns for efficient computation by McCool, Robison, Reinders.
 
 Articoli
 Parallelisation Strategies for Large Scale Cellular Automata Frameworks in Pharmaceutical Modelling.
 Scaling hybrid coarray/MPI miniapps on Archer.
 Performance analysis of Cellular Automata HPC implementations.
-
-
-
-
-
-

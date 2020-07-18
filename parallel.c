@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <omp.h>
 
 #define DEBUG(w, i) printf("%d: %s\n", i, w)
 
@@ -32,7 +33,6 @@ MPI_Comm cart_comm;
 
 
 // Fine variabili globali
-
 
 
 //Creazione di un array 2d contiguo in memoria.
@@ -99,6 +99,7 @@ int main(int argc, char** argv)
     if (cart_comm == MPI_COMM_NULL)
     {
         printf("Error cart");
+        exit(1);
     }
 
     FindNeighbors(cart_comm, rank, neighboors);  
@@ -122,15 +123,7 @@ int main(int argc, char** argv)
         */
         MALLOC(cellular_popolation, rows * SIZE_COLUMNS * sizeof(int));
 
-
-        memset(cellular_popolation, 0, rows * SIZE_COLUMNS * sizeof(int));
-
-        cellular_popolation[5 * SIZE_COLUMNS + 10] = 1;
-        cellular_popolation[5 * SIZE_COLUMNS + 11] = 1;
-        cellular_popolation[4 * SIZE_COLUMNS + 10] = 1;
-        cellular_popolation[4 * SIZE_COLUMNS + 11] = 1;
-
-        //PopulateCellularAutomata(cellular_popolation, rows, SIZE_COLUMNS);    
+        PopulateCellularAutomata(cellular_popolation, rows, SIZE_COLUMNS);    
     }   
 
     //Allocazione array per ogni processo da passare a scatter.
@@ -138,6 +131,7 @@ int main(int argc, char** argv)
     int** cellular_group = Make2DArray(ROWS_PER_PROC + GHOST_SIZE, SIZE_COLUMNS);
     
 
+    //Distrubuzione risorse tra i processi.
     MPI_Scatter(cellular_popolation, data_length, MPI_INT, &(cellular_group[1][0]), data_length, MPI_INT, ROOT,
                     cart_comm); 
 
@@ -161,27 +155,18 @@ int main(int argc, char** argv)
 
         if (rank == ROOT)
         {
-            //Print2DArray(cellular_popolation, rows, SIZE_COLUMNS);
+            Print2DArray(cellular_popolation, rows, SIZE_COLUMNS);
         }
 
-        /* if (rank == ROOT)
-        {
-            for (int i = 1; i < ROWS_PER_PROC + 1; ++i)
-            {
-                for (int j = 0; j < SIZE_COLUMNS; ++j)
-                {
-                    printf("%d ", cellular_group[i][j]);
-                }
-                printf("\n");
-            }
-        } */
-
+        //Calcolo del prossimo stato.
         NextStep(rank, cellular_group, updated_cellular);
 
+        //Raccolta informazioni dagli altri processi.
         MPI_Gather(&updated_cellular[0][0], ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, cellular_popolation, 
                     ROWS_PER_PROC * SIZE_COLUMNS, MPI_INT, ROOT, cart_comm); 
 
 
+        //Semplice sleep per la stampa. Ovviamente nella computazione si deve rimuovere perché peggiora le performance.
         sleep(1);
 
         --number_of_cycles;
@@ -211,14 +196,13 @@ int** Make2DArray(int rows, int columns)
 {
     int *data = malloc(rows * columns * sizeof(int));
 
-    //printf("%p\n", data);
-
 
     int **array = malloc(rows * sizeof(int*));
 
     if (array == NULL || data == NULL)
     {
         printf("error\n");
+        return NULL;
     }
 
 
@@ -277,6 +261,7 @@ void FindNeighbors(MPI_Comm cart_comm, int rank, int *neighbors)
     if (size == 1)
     {
         neighboors[0] = rank;
+        neighboors[1] = rank;
         return;
     }
     else if (size == 2)
@@ -327,66 +312,32 @@ void NextStep(int rank, int** a, int** update)
     //Scambio righe prima della computazione.
     Exchange(a);
 
-    /* if (rank == ROOT)
-    {
-        for (int i = 0; i < ROWS_PER_PROC + GHOST_SIZE; ++i)
-        {
-            for (int j = 0; j < SIZE_COLUMNS; ++j)
-            {
-                printf("%d ", a[i][j]);
-            }
-            printf("\n");
-        }
-        printf("\n\n");
-    }
-         */
-
-
+    //Questa parte si può parallelizzare a livello del processore, in multithreading.
+    #pragma omp parallel for 
     for (int i = 1; i < ROWS_PER_PROC + 1; ++i)
     {
         for (int j = 1; j < SIZE_COLUMNS - 1; ++j)
         {
             int count = CountNeighbors(a, i, j);
-            if (i == 5 && rank == ROOT)
-            {
-                printf("%d ", count);
-            }
             
             CheckRule(count, a, i, j, update);
-        }
-        if (i == 5 && rank == ROOT)
-        {
-            printf("\n\n");
         }
     }
 
     //Copio lo stato aggiornato nell'altro array.
     memcpy(&a[1][0], &update[0][0], ROWS_PER_PROC * SIZE_COLUMNS * sizeof(int));
-
-    /* if (rank == ROOT)
-    {
-        for (int i = 0; i < ROWS_PER_PROC; ++i)
-        {
-            for (int j = 0; j < SIZE_COLUMNS; ++j)
-            {
-                printf("%d ", update[i][j]);
-            }
-            printf("\n");
-        }
-        printf("\n\n");
-    } */
 }
 
 
 void Exchange(int** a)
 {
-    MPI_Isend(&a[3][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[0]);
+    MPI_Isend(&a[ROWS_PER_PROC][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[0]);
   
     MPI_Isend(&a[1][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[1]);
 
-    MPI_Irecv(&a[4][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[3]);
+    MPI_Irecv(&a[ROWS_PER_PROC + 1][0], SIZE_COLUMNS, MPI_INT, neighboors[1], 0, cart_comm, &requests[2]);
 
-    MPI_Irecv(&a[0][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[2]);
+    MPI_Irecv(&a[0][0], SIZE_COLUMNS, MPI_INT, neighboors[0], 0, cart_comm, &requests[3]);
 
     MPI_Waitall(4, requests, status);
 }
